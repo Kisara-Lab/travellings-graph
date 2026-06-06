@@ -1,0 +1,2 @@
+﻿total_nodes,total_edges,avg_in_degree,avg_out_degree,max_in_degree,max_out_degree,density,num_communities,largest_community_size,connected_components
+993,4115,4.14,4.14,136,77,0.004177,25,132,13
