@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开往网络图谱 - 博客组织生态</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0e1a; color: #e0e6f0; font-family: -apple-system, 'PingFang SC', sans-serif; padding: 20px; }
+        h1 { color: #7ecfff; text-align: center; margin-bottom: 8px; font-size: 28px; }
+        .subtitle { text-align: center; color: #8899bb; margin-bottom: 30px; font-size: 14px; }
+        .nav { text-align: center; margin-bottom: 30px; }
+        .nav a { color: #7ecfff; text-decoration: none; margin: 0 12px; padding: 6px 14px; border: 1px solid #3a4a6c; border-radius: 4px; font-size: 13px; }
+        .nav a:hover { background: #1a2a4a; }
+        .section { margin-bottom: 40px; }
+        .section h2 { color: #7ecfff; margin-bottom: 16px; font-size: 20px; border-left: 3px solid #7ecfff; padding-left: 12px; }
+        .chart-container { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 8px; padding: 20px; }
+        .org-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 30px; }
+        .org-card { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 8px; padding: 14px; text-align: center; }
+        .org-card .org-name { font-size: 15px; font-weight: bold; margin-bottom: 6px; }
+        .org-card .org-count { font-size: 22px; font-weight: bold; }
+        .org-card .org-detail { font-size: 11px; color: #8899bb; margin-top: 4px; }
+        .matrix-note { font-size: 12px; color: #8899bb; margin-bottom: 10px; }
+        .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; justify-content: center; }
+        .legend-item { display: flex; align-items: center; font-size: 12px; color: #aabbcc; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; }
+        svg text { fill: #c0ccee; }
+    </style>
+</head>
+<body>
+    <h1>博客组织生态网络</h1>
+    <p class="subtitle">三层爬取发现的中文独立博客组织关系图 — 谁和谁是"一家人"</p>
+    <div class="nav">
+        <a href="index.html">力导向图</a>
+        <a href="dashboard.html">数据分析</a>
+        <a href="external.html">外链图谱</a>
+        <a href="orgs.html">组织生态</a>
+    </div>
+    <p style="text-align:center;color:#8a9ab5;font-size:12px;margin-top:8px;">数据采集日期：2026-06-06 | 数据来源：开往 API + 成员站点实时爬取分析</p>
+
+    <div class="section">
+        <h2>组织规模</h2>
+        <div class="org-grid" id="org-grid"></div>
+    </div>
+
+    <div class="section">
+        <h2>组织关系力导向图</h2>
+        <p class="matrix-note">节点大小 = 成员数，连线粗细 = 交叉成员数，颜色 = 组织标识色</p>
+        <div class="chart-container" id="org-force" style="height:500px;"></div>
+    </div>
+
+    <div class="section">
+        <h2>交叉成员矩阵</h2>
+        <p class="matrix-note">数值表示同时参与两个组织的站点数量</p>
+        <div class="chart-container" id="cross-matrix" style="overflow-x:auto;"></div>
+    </div>
+
+    <div class="section">
+        <h2>成员站点组织标签图</h2>
+        <p class="matrix-note">每个点是一个站点，颜色表示参与的组织（多组织取主要），大小表示参与组织数</p>
+        <div class="legend" id="legend"></div>
+        <div class="chart-container" id="site-bubble" style="height:550px;"></div>
+    </div>
+
+    <script>
+    (async function() {
+        const data = await fetch('./output/org_network.json').then(r => r.json());
+
+        // Org grid
+        const orgGrid = document.getElementById('org-grid');
+        const orgEntries = Object.entries(data.orgs).sort((a, b) => b[1].total - a[1].total);
+
+        orgGrid.innerHTML = orgEntries.map(function(entry) {
+            const name = entry[0];
+            const info = entry[1];
+            return '<div class="org-card">' +
+                '<div class="org-name" style="color:' + info.color + '">' + name + '</div>' +
+                '<div class="org-count" style="color:' + info.color + '">' + info.total + '</div>' +
+                '<div class="org-detail">开往内 ' + info.in_travellings + ' | 开往外 ' + info.outside_travellings + '</div>' +
+                '</div>';
+        }).join('');
+
+        // Force directed org network
+        var forceDiv = document.getElementById('org-force');
+        var fWidth = forceDiv.clientWidth;
+        var fHeight = 500;
+
+        var orgNodes = orgEntries.map(function(entry) {
+            return { id: entry[0], size: entry[1].total, color: entry[1].color };
+        });
+
+        var orgLinks = data.org_cross.map(function(c) {
+            return { source: c.source, target: c.target, value: c.overlap };
+        });
+
+        var fSvg = d3.select('#org-force').append('svg')
+            .attr('width', fWidth).attr('height', fHeight);
+
+        var simulation = d3.forceSimulation(orgNodes)
+            .force('link', d3.forceLink(orgLinks).id(function(d) { return d.id; }).distance(120))
+            .force('charge', d3.forceManyBody().strength(-400))
+            .force('center', d3.forceCenter(fWidth / 2, fHeight / 2))
+            .force('collision', d3.forceCollide().radius(function(d) { return Math.sqrt(d.size) * 2 + 10; }));
+
+        var maxOverlap = d3.max(orgLinks, function(d) { return d.value; });
+        var linkWidthScale = d3.scaleLinear().domain([1, maxOverlap]).range([1, 12]);
+
+        var link = fSvg.append('g').selectAll('line')
+            .data(orgLinks).join('line')
+            .attr('stroke', '#3a5a8c')
+            .attr('stroke-opacity', 0.6)
+            .attr('stroke-width', function(d) { return linkWidthScale(d.value); });
+
+        var node = fSvg.append('g').selectAll('g')
+            .data(orgNodes).join('g')
+            .call(d3.drag()
+                .on('start', function(e, d) { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+                .on('drag', function(e, d) { d.fx = e.x; d.fy = e.y; })
+                .on('end', function(e, d) { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+            );
+
+        node.append('circle')
+            .attr('r', function(d) { return Math.sqrt(d.size) * 1.8 + 5; })
+            .attr('fill', function(d) { return d.color; })
+            .attr('opacity', 0.8)
+            .attr('stroke', '#fff')
+            .attr('stroke-width', 1.5);
+
+        node.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dy', function(d) { return Math.sqrt(d.size) * 1.8 + 18; })
+            .attr('font-size', '12px')
+            .attr('fill', '#c0ccee')
+            .text(function(d) { return d.id; });
+
+        node.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dy', '4px')
+            .attr('font-size', function(d) { return Math.min(Math.sqrt(d.size) * 1.2, 14) + 'px'; })
+            .attr('fill', '#fff')
+            .attr('font-weight', 'bold')
+            .text(function(d) { return d.size; });
+
+        // Link labels
+        var linkLabel = fSvg.append('g').selectAll('text')
+            .data(orgLinks.filter(function(d) { return d.value >= 30; })).join('text')
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '10px')
+            .attr('fill', '#8899bb')
+            .text(function(d) { return d.value; });
+
+        simulation.on('tick', function() {
+            link.attr('x1', function(d) { return d.source.x; })
+                .attr('y1', function(d) { return d.source.y; })
+                .attr('x2', function(d) { return d.target.x; })
+                .attr('y2', function(d) { return d.target.y; });
+            node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+            linkLabel
+                .attr('x', function(d) { return (d.source.x + d.target.x) / 2; })
+                .attr('y', function(d) { return (d.source.y + d.target.y) / 2; });
+        });
+
+        // Cross matrix
+        var matrixDiv = document.getElementById('cross-matrix');
+        var orgNames = orgEntries.map(function(e) { return e[0]; });
+        var crossMap = {};
+        data.org_cross.forEach(function(c) {
+            crossMap[c.source + '|' + c.target] = c.overlap;
+            crossMap[c.target + '|' + c.source] = c.overlap;
+        });
+
+        var cellSize = 50;
+        var mMargin = 100;
+        var mW = cellSize * orgNames.length + mMargin + 20;
+        var mH = cellSize * orgNames.length + mMargin + 20;
+        var maxCross = d3.max(data.org_cross, function(d) { return d.overlap; });
+        var crossColor = d3.scaleSequential(d3.interpolateYlGnBu).domain([0, maxCross]);
+
+        var mSvg = d3.select('#cross-matrix').append('svg')
+            .attr('width', mW).attr('height', mH)
+            .append('g').attr('transform', 'translate(' + mMargin + ',' + mMargin + ')');
+
+        orgNames.forEach(function(name1, i) {
+            orgNames.forEach(function(name2, j) {
+                var val = i === j ? data.orgs[name1].total : (crossMap[name1 + '|' + name2] || 0);
+                mSvg.append('rect')
+                    .attr('x', j * cellSize).attr('y', i * cellSize)
+                    .attr('width', cellSize - 2).attr('height', cellSize - 2)
+                    .attr('fill', val > 0 ? crossColor(val) : '#1a2a3c')
+                    .attr('rx', 3);
+                if (val > 0) {
+                    mSvg.append('text')
+                        .attr('x', j * cellSize + cellSize / 2)
+                        .attr('y', i * cellSize + cellSize / 2 + 4)
+                        .attr('text-anchor', 'middle')
+                        .attr('font-size', '10px')
+                        .attr('fill', val > maxCross * 0.5 ? '#fff' : '#aaa')
+                        .text(val);
+                }
+            });
+            mSvg.append('text').attr('x', -8).attr('y', i * cellSize + cellSize / 2 + 4)
+                .attr('text-anchor', 'end').attr('font-size', '11px')
+                .attr('fill', data.orgs[name1].color)
+                .text(name1);
+            mSvg.append('text')
+                .attr('x', i * cellSize + cellSize / 2).attr('y', -8)
+                .attr('text-anchor', 'middle').attr('font-size', '11px')
+                .attr('fill', data.orgs[orgNames[i]].color)
+                .attr('transform', 'rotate(-45,' + (i * cellSize + cellSize / 2) + ',-8)')
+                .text(orgNames[i]);
+        });
+
+        // Site bubble - packed by org
+        var legendDiv = document.getElementById('legend');
+        legendDiv.innerHTML = orgEntries.slice(0, 8).map(function(entry) {
+            return '<div class="legend-item"><div class="legend-dot" style="background:' + entry[1].color + '"></div>' + entry[0] + '</div>';
+        }).join('');
+
+        var bubbleDiv = document.getElementById('site-bubble');
+        var bWidth = bubbleDiv.clientWidth;
+        var bHeight = 550;
+
+        // Group nodes by primary org
+        var siteNodes = data.nodes.filter(function(n) { return n.orgs.length > 0; });
+        var orgColorMap = {};
+        orgEntries.forEach(function(e) { orgColorMap[e[0]] = e[1].color; });
+
+        var pack = d3.pack().size([bWidth - 20, bHeight - 20]).padding(2);
+
+        var hierarchy = d3.hierarchy({
+            children: siteNodes.map(function(n) {
+                return { id: n.domain, orgs: n.orgs, size: n.orgs.length, layer: n.layer };
+            })
+        }).sum(function(d) { return d.size || 1; });
+
+        var packed = pack(hierarchy);
+
+        var bSvg = d3.select('#site-bubble').append('svg')
+            .attr('width', bWidth).attr('height', bHeight);
+
+        var bubbles = bSvg.selectAll('circle')
+            .data(packed.leaves()).join('circle')
+            .attr('cx', function(d) { return d.x + 10; })
+            .attr('cy', function(d) { return d.y + 10; })
+            .attr('r', function(d) { return d.r; })
+            .attr('fill', function(d) {
+                var primaryOrg = d.data.orgs[0];
+                return orgColorMap[primaryOrg] || '#78909c';
+            })
+            .attr('opacity', function(d) { return d.data.layer === 0 ? 0.7 : 0.4; })
+            .attr('stroke', function(d) { return d.data.layer === 0 ? 'none' : '#fff'; })
+            .attr('stroke-width', 0.5);
+
+        bubbles.append('title')
+            .text(function(d) { return d.data.id + '\n组织: ' + d.data.orgs.join(', ') + '\n层级: ' + d.data.layer; });
+
+    })();
+    </script>
+</body>
+</html>

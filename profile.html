@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>开往网络图谱 - 站点画像</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0f1724; color: #e0e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 30px; }
+        h1 { text-align: center; font-size: 28px; margin-bottom: 8px; background: linear-gradient(90deg, #a29bfe, #fd79a8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { text-align: center; color: #8a9ab5; font-size: 14px; margin-bottom: 10px; }
+        .nav { text-align: center; margin-bottom: 30px; }
+        .nav a { color: #7ecfff; text-decoration: none; margin: 0 8px; padding: 6px 12px; border: 1px solid #3a4a6c; border-radius: 4px; font-size: 12px; }
+        .nav a:hover { background: #1a2a4a; }
+        .stats-row { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-bottom: 30px; }
+        .stat-card { background: #1a2440; border: 1px solid #2a3a5c; border-radius: 10px; padding: 16px 22px; text-align: center; min-width: 120px; }
+        .stat-card .num { font-size: 28px; font-weight: bold; }
+        .stat-card .label { font-size: 11px; color: #8a9ab5; margin-top: 4px; }
+        .section { background: #1a2440; border: 1px solid #2a3a5c; border-radius: 10px; padding: 24px; margin-bottom: 24px; }
+        .section h2 { font-size: 18px; margin-bottom: 16px; color: #7ecfff; }
+        .section p.note { font-size: 12px; color: #8a9ab5; margin-bottom: 12px; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+        .chart-container { width: 100%; overflow-x: auto; }
+        .ranking-list { max-height: 400px; overflow-y: auto; }
+        .ranking-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ranking-list th { text-align: left; padding: 8px; border-bottom: 1px solid #2a3a5c; color: #7ecfff; position: sticky; top: 0; background: #1a2440; }
+        .ranking-list td { padding: 6px 8px; border-bottom: 1px solid #1f2f4c; }
+        .ranking-list td a { color: #7ecfff; text-decoration: none; }
+        .score-bar { display: inline-block; height: 14px; border-radius: 3px; vertical-align: middle; }
+        .seo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .seo-item { background: #0f1724; border-radius: 8px; padding: 14px; text-align: center; }
+        .seo-item .pct { font-size: 24px; font-weight: bold; }
+        .seo-item .name { font-size: 11px; color: #8a9ab5; margin-top: 4px; }
+        .social-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .social-bar .bar { height: 22px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: #fff; min-width: 30px; }
+        .social-bar .platform { width: 80px; text-align: right; font-size: 12px; color: #e0e8f0; }
+    </style>
+</head>
+<body>
+    <h1>站点画像分析</h1>
+    <p class="subtitle">SEO 健康度 + 站主社交图谱 — 开往社区的"人"与"技术"侧写</p>
+    <div class="nav">
+        <a href="index.html">力导向图</a>
+        <a href="dashboard.html">数据分析</a>
+        <a href="external.html">外链图谱</a>
+        <a href="orgs.html">组织生态</a>
+        <a href="activity.html">活跃度</a>
+        <a href="infra.html">基础设施</a>
+        <a href="profile.html">站点画像</a>
+    </div>
+    <p style="text-align:center;color:#8a9ab5;font-size:12px;margin-top:8px;">数据采集日期：2026-06-06 | 数据来源：开往 API + 成员站点实时爬取分析</p>
+
+    <!-- SEO Section -->
+    <div class="section">
+        <h2>SEO 健康度概览</h2>
+        <p class="note">检测项：Title / Description / OG标签 / Twitter Card / Canonical / Viewport / robots.txt / sitemap.xml，满分100</p>
+        <div class="stats-row" id="seo-stats"></div>
+        <div class="seo-grid" id="seo-grid"></div>
+    </div>
+
+    <div class="two-col">
+        <div class="section">
+            <h2>SEO 评分分布</h2>
+            <div class="chart-container" id="seo-dist" style="height:260px;"></div>
+        </div>
+        <div class="section">
+            <h2>SEO Top & Bottom 20</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <h3 style="color:#4ecdc4;font-size:13px;margin-bottom:8px;">最佳</h3>
+                    <div class="ranking-list" id="seo-top" style="max-height:240px;"></div>
+                </div>
+                <div>
+                    <h3 style="color:#ff6b6b;font-size:13px;margin-bottom:8px;">待改进</h3>
+                    <div class="ranking-list" id="seo-bottom" style="max-height:240px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Social Section -->
+    <div class="section">
+        <h2>站主社交平台分布</h2>
+        <p class="note">从首页和关于页提取社交链接，82.8% 的站点至少有一个社交账号</p>
+        <div class="stats-row" id="social-stats"></div>
+        <div class="chart-container" id="social-chart" style="height:400px;margin-top:16px;"></div>
+    </div>
+
+    <div class="section">
+        <h2>GitHub 活跃站主</h2>
+        <p class="note">67.5% 的开往成员站在首页展示了 GitHub 链接</p>
+        <div class="ranking-list" id="github-list" style="max-height:300px;"></div>
+    </div>
+
+<script>
+// === SEO ===
+d3.json('./output/seo.json').then(data => {
+    renderSEOStats(data);
+    renderSEOGrid(data);
+    renderSEODist(data);
+    renderSEORankings(data);
+});
+
+function renderSEOStats(data) {
+    const cards = [
+        { num: data.valid_sites, label: '有效检测', color: '#7ecfff' },
+        { num: data.avg_score + '/100', label: '平均SEO分', color: '#ffa502' },
+        { num: data.stats.has_title, label: '有Title', color: '#4ecdc4' },
+        { num: data.stats.has_description, label: '有Description', color: '#4ecdc4' },
+        { num: data.stats.has_og_tags, label: '有OG标签', color: '#a29bfe' },
+        { num: data.stats.has_robots_txt, label: 'robots.txt', color: '#fd79a8' },
+        { num: data.stats.has_sitemap_xml, label: 'sitemap.xml', color: '#fd79a8' },
+    ];
+    document.getElementById('seo-stats').innerHTML = cards.map(c =>
+        `<div class="stat-card"><div class="num" style="color:${c.color}">${c.num}</div><div class="label">${c.label}</div></div>`
+    ).join('');
+}
+
+function renderSEOGrid(data) {
+    const s = data.stats;
+    const v = data.valid_sites;
+    const items = [
+        { name: 'Title', count: s.has_title, color: '#4ecdc4' },
+        { name: 'Description', count: s.has_description, color: '#4ecdc4' },
+        { name: 'OG Tags', count: s.has_og_tags, color: '#a29bfe' },
+        { name: 'Twitter Card', count: s.has_twitter_card, color: '#74b9ff' },
+        { name: 'Canonical', count: s.has_canonical, color: '#fdcb6e' },
+        { name: 'Viewport', count: s.has_viewport, color: '#00cec9' },
+        { name: 'robots.txt', count: s.has_robots_txt, color: '#fd79a8' },
+        { name: 'sitemap.xml', count: s.has_sitemap_xml, color: '#e17055' },
+    ];
+    document.getElementById('seo-grid').innerHTML = items.map(i =>
+        `<div class="seo-item"><div class="pct" style="color:${i.color}">${(i.count/v*100).toFixed(1)}%</div><div class="name">${i.name} (${i.count}/${v})</div></div>`
+    ).join('');
+}
+
+function renderSEODist(data) {
+    const dist = data.score_distribution;
+    const container = document.getElementById('seo-dist');
+    const width = container.clientWidth || 400;
+    const height = 260;
+    const margin = { top: 20, right: 20, bottom: 40, left: 50 };
+
+    const svg = d3.select('#seo-dist').append('svg').attr('width', width).attr('height', height);
+    const colors = ['#4ecdc4', '#7ecfff', '#ffa502', '#ff6b6b', '#57606f'];
+
+    const x = d3.scaleBand().domain(dist.map(d => d.label)).range([margin.left, width - margin.right]).padding(0.3);
+    const y = d3.scaleLinear().domain([0, d3.max(dist, d => d.count)]).range([height - margin.bottom, margin.top]);
+
+    svg.selectAll('rect').data(dist).enter().append('rect')
+        .attr('x', d => x(d.label)).attr('width', x.bandwidth())
+        .attr('y', d => y(d.count)).attr('height', d => y(0) - y(d.count))
+        .attr('fill', (d, i) => colors[i]).attr('rx', 4);
+
+    svg.selectAll('.label').data(dist).enter().append('text')
+        .attr('x', d => x(d.label) + x.bandwidth()/2).attr('y', d => y(d.count) - 5)
+        .attr('text-anchor', 'middle').attr('fill', '#e0e8f0').attr('font-size', '12px')
+        .text(d => d.count);
+
+    svg.append('g').attr('transform', `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x)).attr('color', '#8a9ab5')
+        .selectAll('text').attr('font-size', '10px');
+    svg.append('g').attr('transform', `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).ticks(4)).attr('color', '#8a9ab5');
+}
+
+function renderSEORankings(data) {
+    const top = data.top_scores.slice(0, 20);
+    const bottom = data.worst_scores.slice(-20).reverse();
+
+    document.getElementById('seo-top').innerHTML = `<table><tr><th>#</th><th>站点</th><th>分数</th></tr>` +
+        top.map((s, i) => `<tr><td>${i+1}</td><td><a href="${s.url}" target="_blank">${s.domain}</a></td><td><span class="score-bar" style="width:${s.score}px;background:#4ecdc4;"></span> ${s.score}</td></tr>`).join('') + '</table>';
+
+    document.getElementById('seo-bottom').innerHTML = `<table><tr><th>#</th><th>站点</th><th>分数</th></tr>` +
+        bottom.map((s, i) => `<tr><td>${i+1}</td><td><a href="${s.url}" target="_blank">${s.domain}</a></td><td><span class="score-bar" style="width:${Math.max(s.score,5)}px;background:#ff6b6b;"></span> ${s.score}</td></tr>`).join('') + '</table>';
+}
+
+// === Social ===
+d3.json('./output/social.json').then(data => {
+    renderSocialStats(data);
+    renderSocialChart(data);
+    renderGitHubList(data);
+});
+
+function renderSocialStats(data) {
+    const cards = [
+        { num: data.valid_sites, label: '有效检测', color: '#7ecfff' },
+        { num: data.has_social, label: '有社交链接', color: '#4ecdc4' },
+        { num: (data.has_social/data.valid_sites*100).toFixed(1) + '%', label: '覆盖率', color: '#a29bfe' },
+        { num: data.github_users.length, label: 'GitHub用户', color: '#e0e8f0' },
+    ];
+    document.getElementById('social-stats').innerHTML = cards.map(c =>
+        `<div class="stat-card"><div class="num" style="color:${c.color}">${c.num}</div><div class="label">${c.label}</div></div>`
+    ).join('');
+}
+
+function renderSocialChart(data) {
+    const dist = data.platform_distribution;
+    const container = document.getElementById('social-chart');
+    const width = container.clientWidth || 700;
+    const height = 400;
+    const margin = { top: 10, right: 60, bottom: 10, left: 100 };
+
+    const svg = d3.select('#social-chart').append('svg').attr('width', width).attr('height', height);
+
+    const platformColors = {
+        'GitHub': '#333', 'Twitter/X': '#1da1f2', 'Bilibili': '#fb7299',
+        '微信公众号': '#07c160', 'RSS/Feed': '#f26522', '邮箱': '#ffa502',
+        'Telegram': '#0088cc', 'QQ': '#12b7f5', '微博': '#e6162d',
+        '知乎': '#0066ff', 'Mastodon': '#6364ff', 'Steam': '#1b2838',
+        'YouTube': '#ff0000', '小红书': '#ff2442', '豆瓣': '#00b51d',
+        'Discord': '#5865f2', '即刻': '#ffe411',
+    };
+
+    const y = d3.scaleBand().domain(dist.map(d => d[0])).range([margin.top, height - margin.bottom]).padding(0.2);
+    const x = d3.scaleLinear().domain([0, d3.max(dist, d => d[1])]).range([margin.left, width - margin.right]);
+
+    svg.selectAll('rect').data(dist).enter().append('rect')
+        .attr('x', margin.left).attr('y', d => y(d[0]))
+        .attr('width', d => x(d[1]) - margin.left).attr('height', y.bandwidth())
+        .attr('fill', d => platformColors[d[0]] || '#8a9ab5')
+        .attr('rx', 3).attr('opacity', 0.85);
+
+    svg.selectAll('.val').data(dist).enter().append('text')
+        .attr('x', d => x(d[1]) + 5).attr('y', d => y(d[0]) + y.bandwidth()/2 + 4)
+        .attr('fill', '#e0e8f0').attr('font-size', '11px')
+        .text(d => `${d[1]} (${(d[1]/data.valid_sites*100).toFixed(1)}%)`);
+
+    svg.selectAll('.name').data(dist).enter().append('text')
+        .attr('x', margin.left - 5).attr('y', d => y(d[0]) + y.bandwidth()/2 + 4)
+        .attr('text-anchor', 'end').attr('fill', '#e0e8f0').attr('font-size', '12px')
+        .text(d => d[0]);
+}
+
+function renderGitHubList(data) {
+    const users = data.github_users.slice(0, 50);
+    document.getElementById('github-list').innerHTML = `<table><tr><th>#</th><th>站点</th><th>GitHub</th></tr>` +
+        users.map((u, i) => `<tr><td>${i+1}</td><td>${u.domain}</td><td><a href="${u.url}" target="_blank">${u.github}</a></td></tr>`).join('') + '</table>';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+{
+  "in_degree_top20": [
+    {
+      "domain": "blog.zhheo.com",
+      "name": "张洪 Heo",
+      "tag": "go,blog,tech",
+      "value": 136
+    },
+    {
+      "domain": "blog.anheyu.com",
+      "name": "安知鱼",
+      "tag": "go",
+      "value": 69
+    },
+    {
+      "domain": "dusays.com",
+      "name": "杜老师说",
+      "tag": "blog,tech",
+      "value": 58
+    },
+    {
+      "domain": "blog.liushen.fun",
+      "name": "清羽飞扬",
+      "tag": "go,blog,tech",
+      "value": 55
+    },
+    {
+      "domain": "thyuu.com",
+      "name": "风记星辰",
+      "tag": "go,blog,life",
+      "value": 40
+    },
+    {
+      "domain": "pinpe.top",
+      "name": "Pinpe",
+      "tag": "go",
+      "value": 37
+    },
+    {
+      "domain": "blog.leonus.cn",
+      "name": "Leonus",
+      "tag": "blog,hybrid",
+      "value": 33
+    },
+    {
+      "domain": "blog.starsharbor.com",
+      "name": "◈星港◎Star☆的博客",
+      "tag": "go,blog",
+      "value": 31
+    },
+    {
+      "domain": "blog.kfdzcoffee.cn",
+      "name": "咖啡豆子coffee的小站",
+      "tag": "go",
+      "value": 29
+    },
+    {
+      "domain": "blognas.hwb0307.com",
+      "name": "浮云翩迁之间",
+      "tag": "blog,tech",
+      "value": 29
+    },
+    {
+      "domain": "note.redcha.cn",
+      "name": "彬红茶日记",
+      "tag": "go",
+      "value": 29
+    },
+    {
+      "domain": "blog.bsgun.cn",
+      "name": "梦爱吃鱼",
+      "tag": "go,blog",
+      "value": 27
+    },
+    {
+      "domain": "dao.js.cn",
+      "name": "懋和道人",
+      "tag": "blog,life",
+      "value": 27
+    },
+    {
+      "domain": "blog.lusyoe.com",
+      "name": "青萍叙事",
+      "tag": "go",
+      "value": 25
+    },
+    {
+      "domain": "blog.yaria.top",
+      "name": "Ariasakaの小窝",
+      "tag": "go,blog",
+      "value": 23
+    },
+    {
+      "domain": "wcowin.work",
+      "name": "Wcowin's Blog",
+      "tag": "blog,tech",
+      "value": 22
+    },
+    {
+      "domain": "vjo.cc",
+      "name": "刘郎阁",
+      "tag": "blog,life",
+      "value": 22
+    },
+    {
+      "domain": "blog.imsyy.top",
+      "name": "無名小栈",
+      "tag": "blog,tech",
+      "value": 21
+    },
+    {
+      "domain": "lihaoyu.cn",
+      "name": "晓雨杂记",
+      "tag": "go,blog,hybrid",
+      "value": 18
+    },
+    {
+      "domain": "linexic.top",
+      "name": "LineXic书屋",
+      "tag": "blog,life",
+      "value": 18
+    }
+  ],
+  "out_degree_top20": [
+    {
+      "domain": "blog.liushen.fun",
+      "name": "清羽飞扬",
+      "tag": "go,blog,tech",
+      "value": 77
+    },
+    {
+      "domain": "blog.zhilu.cyou",
+      "name": "纸鹿摸鱼处",
+      "tag": "go",
+      "value": 56
+    },
+    {
+      "domain": "thyuu.com",
+      "name": "风记星辰",
+      "tag": "go,blog,life",
+      "value": 56
+    },
+    {
+      "domain": "blog.storia.ren",
+      "name": "绘星里",
+      "tag": "go,blog,hybrid",
+      "value": 47
+    },
+    {
+      "domain": "blog.kfdzcoffee.cn",
+      "name": "咖啡豆子coffee的小站",
+      "tag": "go",
+      "value": 46
+    },
+    {
+      "domain": "note.redcha.cn",
+      "name": "彬红茶日记",
+      "tag": "go",
+      "value": 43
+    },
+    {
+      "domain": "blog.yaria.top",
+      "name": "Ariasakaの小窝",
+      "tag": "go,blog",
+      "value": 41
+    },
+    {
+      "domain": "blog.lusyoe.com",
+      "name": "青萍叙事",
+      "tag": "go",
+      "value": 39
+    },
+    {
+      "domain": "blog.starsharbor.com",
+      "name": "◈星港◎Star☆的博客",
+      "tag": "go,blog",
+      "value": 34
+    },
+    {
+      "domain": "dusays.com",
+      "name": "杜老师说",
+      "tag": "blog,tech",
+      "value": 33
+    },
+    {
+      "domain": "blog.bsgun.cn",
+      "name": "梦爱吃鱼",
+      "tag": "go,blog",
+      "value": 32
+    },
+    {
+      "domain": "baiwumm.com",
+      "name": "浮生半页",
+      "tag": "go,blog",
+      "value": 30
+    },
+    {
+      "domain": "oyiso.cn",
+      "name": "Oyiso's Blog",
+      "tag": "go",
+      "value": 30
+    },
+    {
+      "domain": "blognas.hwb0307.com",
+      "name": "浮云翩迁之间",
+      "tag": "blog,tech",
+      "value": 28
+    },
+    {
+      "domain": "wcowin.work",
+      "name": "Wcowin's Blog",
+      "tag": "blog,tech",
+      "value": 28
+    },
+    {
+      "domain": "linexic.top",
+      "name": "LineXic书屋",
+      "tag": "blog,life",
+      "value": 27
+    },
+    {
+      "domain": "blog.awaae001.top",
+      "name": "呓语梦轩",
+      "tag": "blog,life",
+      "value": 26
+    },
+    {
+      "domain": "vnyzm.top",
+      "name": "VnYzm的博客",
+      "tag": "go",
+      "value": 23
+    },
+    {
+      "domain": "wang618.cn",
+      "name": "旺东自留地",
+      "tag": "blog,tech",
+      "value": 22
+    },
+    {
+      "domain": "blog.opeach.cn",
+      "name": "HiPeach - 月波微澜",
+      "tag": "go,blog",
+      "value": 22
+    }
+  ],
+  "pagerank_top20": [
+    {
+      "domain": "blog.zhheo.com",
+      "name": "张洪 Heo",
+      "tag": "go,blog,tech",
+      "value": 187.06
+    },
+    {
+      "domain": "blog.anheyu.com",
+      "name": "安知鱼",
+      "tag": "go",
+      "value": 98.64
+    },
+    {
+      "domain": "dusays.com",
+      "name": "杜老师说",
+      "tag": "blog,tech",
+      "value": 95.12
+    },
+    {
+      "domain": "thyuu.com",
+      "name": "风记星辰",
+      "tag": "go,blog,life",
+      "value": 66.58
+    },
+    {
+      "domain": "blognas.hwb0307.com",
+      "name": "浮云翩迁之间",
+      "tag": "blog,tech",
+      "value": 57.68
+    },
+    {
+      "domain": "blog.liushen.fun",
+      "name": "清羽飞扬",
+      "tag": "go,blog,tech",
+      "value": 57.46
+    },
+    {
+      "domain": "blog.leonus.cn",
+      "name": "Leonus",
+      "tag": "blog,hybrid",
+      "value": 51.47
+    },
+    {
+      "domain": "blog.kfdzcoffee.cn",
+      "name": "咖啡豆子coffee的小站",
+      "tag": "go",
+      "value": 45.32
+    },
+    {
+      "domain": "pinpe.top",
+      "name": "Pinpe",
+      "tag": "go",
+      "value": 39.36
+    },
+    {
+      "domain": "yunyoujun.cn",
+      "name": "云游君的小站",
+      "tag": "go,blog",
+      "value": 39.11
+    },
+    {
+      "domain": "blog.starsharbor.com",
+      "name": "◈星港◎Star☆的博客",
+      "tag": "go,blog",
+      "value": 38.89
+    },
+    {
+      "domain": "lihaoyu.cn",
+      "name": "晓雨杂记",
+      "tag": "go,blog,hybrid",
+      "value": 36.78
+    },
+    {
+      "domain": "note.redcha.cn",
+      "name": "彬红茶日记",
+      "tag": "go",
+      "value": 35.43
+    },
+    {
+      "domain": "wiki.eryajf.net",
+      "name": "二丫讲梵",
+      "tag": "go,blog,tech",
+      "value": 34.69
+    },
+    {
+      "domain": "axi404.top",
+      "name": "Axi's Blog",
+      "tag": "go,blog,hybrid",
+      "value": 32.81
+    },
+    {
+      "domain": "kegongteng.cn",
+      "name": "Kegongteng",
+      "tag": "blog,life",
+      "value": 32.0
+    },
+    {
+      "domain": "webfem.com",
+      "name": "webfem",
+      "tag": "blog,tech",
+      "value": 31.48
+    },
+    {
+      "domain": "david03.top",
+      "name": "Davidの3号基地",
+      "tag": "go,blog",
+      "value": 30.92
+    },
+    {
+      "domain": "xifeng.net",
+      "name": "西风",
+      "tag": "go,blog,hybrid",
+      "value": 30.66
+    },
+    {
+      "domain": "dao.js.cn",
+      "name": "懋和道人",
+      "tag": "blog,life",
+      "value": 30.47
+    }
+  ]
+}

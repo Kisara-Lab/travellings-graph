@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开往网络图谱 - 数据分析</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0e1a; color: #e0e6f0; font-family: -apple-system, 'PingFang SC', sans-serif; padding: 20px; }
+        h1 { color: #7ecfff; text-align: center; margin-bottom: 8px; font-size: 28px; }
+        .subtitle { text-align: center; color: #8899bb; margin-bottom: 30px; font-size: 14px; }
+        .nav { text-align: center; margin-bottom: 30px; }
+        .nav a { color: #7ecfff; text-decoration: none; margin: 0 12px; padding: 6px 14px; border: 1px solid #3a4a6c; border-radius: 4px; font-size: 13px; }
+        .nav a:hover { background: #1a2a4a; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 30px; }
+        .stat-card { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 8px; padding: 16px; text-align: center; }
+        .stat-card .value { font-size: 24px; color: #7ecfff; font-weight: bold; }
+        .stat-card .label { font-size: 12px; color: #8899bb; margin-top: 4px; }
+        .section { margin-bottom: 40px; }
+        .section h2 { color: #7ecfff; margin-bottom: 16px; font-size: 20px; border-left: 3px solid #7ecfff; padding-left: 12px; }
+        .ranking-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+        .ranking-card { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 8px; padding: 16px; }
+        .ranking-card h3 { color: #aabbdd; font-size: 14px; margin-bottom: 12px; }
+        .rank-item { display: flex; align-items: center; padding: 6px 0; border-bottom: 1px solid #1a2a3c; }
+        .rank-item:last-child { border-bottom: none; }
+        .rank-num { width: 24px; font-size: 12px; color: #5a6a8c; font-weight: bold; }
+        .rank-bar { flex: 1; margin: 0 8px; position: relative; height: 20px; background: #1a2a3c; border-radius: 3px; overflow: hidden; }
+        .rank-bar .fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+        .rank-bar .name { position: absolute; left: 6px; top: 2px; font-size: 11px; color: #e0e6f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%; }
+        .rank-value { width: 40px; text-align: right; font-size: 12px; color: #8899bb; }
+        .chart-container { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 8px; padding: 20px; }
+        .heatmap-container { overflow-x: auto; }
+        .community-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+        .community-card { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 8px; padding: 14px; }
+        .community-card h4 { color: #7ecfff; font-size: 13px; margin-bottom: 8px; }
+        .community-card .members { font-size: 12px; color: #8899bb; line-height: 1.8; }
+        .community-card .member { display: inline-block; background: #1a2a4a; padding: 2px 8px; border-radius: 3px; margin: 2px 4px 2px 0; }
+        svg text { fill: #8899bb; font-size: 11px; }
+        .axis path, .axis line { stroke: #3a4a6c; }
+    </style>
+</head>
+<body>
+    <h1>开往网络图谱 - 数据分析</h1>
+    <p class="subtitle">Travellings Network Analysis Dashboard</p>
+    <div class="nav">
+        <a href="index.html">力导向图</a>
+        <a href="dashboard.html">数据分析</a>
+        <a href="external.html">外链图谱</a>
+        <a href="orgs.html">组织生态</a>
+    </div>
+    <p style="text-align:center;color:#8a9ab5;font-size:12px;margin-top:8px;">数据采集日期：2026-06-06 | 数据来源：开往 API + 成员站点实时爬取分析</p>
+    </div>
+
+    <div class="stats-grid" id="stats-grid"></div>
+
+    <div class="section">
+        <h2>排行榜</h2>
+        <div class="ranking-cols" id="rankings"></div>
+    </div>
+
+    <div class="section">
+        <h2>度数分布</h2>
+        <div class="chart-container" id="degree-chart" style="height: 320px;"></div>
+    </div>
+
+    <div class="section">
+        <h2>Tag 互链热力图</h2>
+        <div class="chart-container heatmap-container" id="heatmap"></div>
+    </div>
+
+    <div class="section">
+        <h2>博客平台分布</h2>
+        <div class="chart-container" id="platform-chart" style="height: 420px;"></div>
+    </div>
+
+    <div class="section">
+        <h2>ICP 备案地理分布</h2>
+        <p class="subtitle" style="text-align:left;margin-bottom:12px;font-size:12px;">基于 ICP 备案号省份前缀提取，覆盖 36% 的站点</p>
+        <div class="chart-container" id="geo-chart" style="height: 420px;"></div>
+    </div>
+
+    <div class="section">
+        <h2>社区发现 (Louvain)</h2>
+        <div class="community-list" id="communities"></div>
+    </div>
+
+    <script>
+    (async function() {
+        const [stats, rankings, degreeDist, heatmapData, commData, platformData, geoData] = await Promise.all([
+            fetch('./output/stats.json').then(r => r.json()),
+            fetch('./output/rankings.json').then(r => r.json()),
+            fetch('./output/degree_distribution.json').then(r => r.json()),
+            fetch('./output/tag_heatmap.json').then(r => r.json()),
+            fetch('./output/communities.json').then(r => r.json()),
+            fetch('./output/platforms.json').then(r => r.json()),
+            fetch('./output/icp_geo.json').then(r => r.json())
+        ]);
+
+        // Stats grid
+        const statsGrid = document.getElementById('stats-grid');
+        const statItems = [
+            { value: stats.total_nodes, label: '活跃节点' },
+            { value: stats.total_edges, label: '总边数' },
+            { value: stats.avg_in_degree, label: '平均入度' },
+            { value: stats.max_in_degree, label: '最高入度' },
+            { value: stats.max_out_degree, label: '最高出度' },
+            { value: stats.density, label: '网络密度' },
+            { value: stats.num_communities, label: '社区数' },
+            { value: stats.connected_components, label: '连通分量' }
+        ];
+        statsGrid.innerHTML = statItems.map(s =>
+            '<div class="stat-card"><div class="value">' + s.value + '</div><div class="label">' + s.label + '</div></div>'
+        ).join('');
+
+        // Rankings
+        const colors = ['#4fc3f7', '#81c784', '#ffb74d'];
+        const titles = ['入度 Top 20 (最受欢迎)', '出度 Top 20 (最社交)', 'PageRank Top 20 (影响力)'];
+        const keys = ['in_degree_top20', 'out_degree_top20', 'pagerank_top20'];
+        const rankingsDiv = document.getElementById('rankings');
+
+        keys.forEach((key, idx) => {
+            const data = rankings[key];
+            const maxVal = data[0].value;
+            let html = '<div class="ranking-card"><h3>' + titles[idx] + '</h3>';
+            data.forEach((item, i) => {
+                const pct = (item.value / maxVal * 100).toFixed(1);
+                html += '<div class="rank-item">';
+                html += '<span class="rank-num">' + (i + 1) + '</span>';
+                html += '<div class="rank-bar"><div class="fill" style="width:' + pct + '%;background:' + colors[idx] + ';opacity:0.7"></div>';
+                html += '<span class="name">' + (item.name || item.domain) + '</span></div>';
+                html += '<span class="rank-value">' + item.value + '</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+            rankingsDiv.innerHTML += html;
+        });
+
+        // Degree distribution chart
+        const chartDiv = document.getElementById('degree-chart');
+        const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+        const width = chartDiv.clientWidth - margin.left - margin.right;
+        const height = 280 - margin.top - margin.bottom;
+
+        const svg = d3.select('#degree-chart').append('svg')
+            .attr('width', width + margin.left + margin.right)
+            .attr('height', height + margin.top + margin.bottom)
+            .append('g')
+            .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+        const x = d3.scaleLog().domain([1, d3.max(degreeDist, d => d.degree)]).range([0, width]);
+        const y = d3.scaleLog().domain([1, d3.max(degreeDist, d => d.count)]).range([height, 0]);
+
+        svg.append('g').attr('class', 'axis').attr('transform', 'translate(0,' + height + ')')
+            .call(d3.axisBottom(x).ticks(5, '~s'));
+        svg.append('g').attr('class', 'axis').call(d3.axisLeft(y).ticks(5, '~s'));
+
+        svg.selectAll('circle').data(degreeDist.filter(d => d.degree > 0))
+            .join('circle')
+            .attr('cx', d => x(d.degree))
+            .attr('cy', d => y(d.count))
+            .attr('r', 3.5)
+            .attr('fill', '#4fc3f7')
+            .attr('opacity', 0.7);
+
+        svg.append('text').attr('x', width / 2).attr('y', height + 35)
+            .attr('text-anchor', 'middle').text('Degree (log)');
+        svg.append('text').attr('transform', 'rotate(-90)')
+            .attr('x', -height / 2).attr('y', -38)
+            .attr('text-anchor', 'middle').text('Count (log)');
+
+        // Heatmap
+        const hmDiv = document.getElementById('heatmap');
+        const tags = heatmapData.tags;
+        const matrix = heatmapData.matrix;
+        const cellSize = Math.min(40, (hmDiv.clientWidth - 120) / tags.length);
+        const hmW = cellSize * tags.length + 120;
+        const hmH = cellSize * tags.length + 120;
+
+        const hmSvg = d3.select('#heatmap').append('svg')
+            .attr('width', hmW).attr('height', hmH)
+            .append('g').attr('transform', 'translate(80, 80)');
+
+        const maxFlow = d3.max(matrix.flat());
+        const colorScale = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, maxFlow]);
+
+        tags.forEach((tag, i) => {
+            tags.forEach((tag2, j) => {
+                hmSvg.append('rect')
+                    .attr('x', j * cellSize).attr('y', i * cellSize)
+                    .attr('width', cellSize - 1).attr('height', cellSize - 1)
+                    .attr('fill', matrix[i][j] > 0 ? colorScale(matrix[i][j]) : '#1a2a3c')
+                    .attr('rx', 2)
+                    .append('title').text(tag + ' -> ' + tag2 + ': ' + matrix[i][j]);
+            });
+            hmSvg.append('text').attr('x', -6).attr('y', i * cellSize + cellSize / 2 + 4)
+                .attr('text-anchor', 'end').attr('font-size', '10px').text(tag);
+            hmSvg.append('text').attr('x', i * cellSize + cellSize / 2)
+                .attr('y', -6).attr('text-anchor', 'middle')
+                .attr('font-size', '10px')
+                .attr('transform', 'rotate(-45,' + (i * cellSize + cellSize / 2) + ',-6)')
+                .text(tag);
+        });
+
+        // Communities
+        const commDiv = document.getElementById('communities');
+        const commColors = d3.schemeTableau10;
+        commData.communities.forEach((comm, i) => {
+            let html = '<div class="community-card">';
+            html += '<h4 style="color:' + commColors[i % 10] + '">社区 #' + (i + 1) + ' (' + comm.size + ' 人)</h4>';
+            html += '<div class="members">';
+            comm.top_members.forEach(m => {
+                html += '<span class="member">' + (m.name || m.domain) + ' <span style="color:#5a6a8c">(' + m.in_degree + ')</span></span>';
+            });
+            if (comm.size > 15) html += '<span style="color:#5a6a8c">... 等 ' + comm.size + ' 人</span>';
+            html += '</div></div>';
+            commDiv.innerHTML += html;
+        });
+
+        // Platform distribution chart
+        const pfDiv = document.getElementById('platform-chart');
+        const pfData = platformData.distribution.filter(d => d.platform !== 'Unreachable').slice(0, 15);
+        const pfMargin = { top: 20, right: 80, bottom: 30, left: 140 };
+        const pfWidth = pfDiv.clientWidth - pfMargin.left - pfMargin.right;
+        const pfHeight = 380 - pfMargin.top - pfMargin.bottom;
+
+        const pfSvg = d3.select('#platform-chart').append('svg')
+            .attr('width', pfWidth + pfMargin.left + pfMargin.right)
+            .attr('height', pfHeight + pfMargin.top + pfMargin.bottom)
+            .append('g')
+            .attr('transform', 'translate(' + pfMargin.left + ',' + pfMargin.top + ')');
+
+        const pfX = d3.scaleLinear().domain([0, d3.max(pfData, d => d.count)]).range([0, pfWidth]);
+        const pfY = d3.scaleBand().domain(pfData.map(d => d.platform)).range([0, pfHeight]).padding(0.15);
+
+        pfSvg.append('g').attr('class', 'axis').call(d3.axisLeft(pfY)).selectAll('text').style('fill', '#c0ccee').style('font-size', '12px');
+        pfSvg.append('g').attr('class', 'axis').attr('transform', 'translate(0,' + pfHeight + ')').call(d3.axisBottom(pfX).ticks(5));
+
+        const pfColor = d3.scaleOrdinal(d3.schemeTableau10);
+
+        pfSvg.selectAll('rect').data(pfData).join('rect')
+            .attr('x', 0)
+            .attr('y', d => pfY(d.platform))
+            .attr('width', d => pfX(d.count))
+            .attr('height', pfY.bandwidth())
+            .attr('fill', (d, i) => pfColor(i))
+            .attr('rx', 3)
+            .attr('opacity', 0.85);
+
+        pfSvg.selectAll('.pf-label').data(pfData).join('text')
+            .attr('x', d => pfX(d.count) + 6)
+            .attr('y', d => pfY(d.platform) + pfY.bandwidth() / 2 + 4)
+            .attr('font-size', '11px')
+            .attr('fill', '#8899bb')
+            .text(d => d.count + ' (' + d.percentage + '%)');
+
+        // ICP Geo distribution chart
+        const geoDiv = document.getElementById('geo-chart');
+        const geoDistData = geoData.province_distribution;
+        const geoMargin = { top: 20, right: 80, bottom: 30, left: 70 };
+        const geoWidth = geoDiv.clientWidth - geoMargin.left - geoMargin.right;
+        const geoHeight = 380 - geoMargin.top - geoMargin.bottom;
+
+        const geoSvg = d3.select('#geo-chart').append('svg')
+            .attr('width', geoWidth + geoMargin.left + geoMargin.right)
+            .attr('height', geoHeight + geoMargin.top + geoMargin.bottom)
+            .append('g')
+            .attr('transform', 'translate(' + geoMargin.left + ',' + geoMargin.top + ')');
+
+        const geoX = d3.scaleBand().domain(geoDistData.map(d => d.province)).range([0, geoWidth]).padding(0.15);
+        const geoY = d3.scaleLinear().domain([0, d3.max(geoDistData, d => d.count)]).range([geoHeight, 0]);
+
+        geoSvg.append('g').attr('class', 'axis').attr('transform', 'translate(0,' + geoHeight + ')')
+            .call(d3.axisBottom(geoX))
+            .selectAll('text').style('fill', '#c0ccee').style('font-size', '10px')
+            .attr('transform', 'rotate(-30)').attr('text-anchor', 'end');
+        geoSvg.append('g').attr('class', 'axis').call(d3.axisLeft(geoY).ticks(5));
+
+        const geoColor = d3.scaleSequential(d3.interpolateBlues).domain([0, d3.max(geoDistData, d => d.count)]);
+
+        geoSvg.selectAll('rect').data(geoDistData).join('rect')
+            .attr('x', d => geoX(d.province))
+            .attr('y', d => geoY(d.count))
+            .attr('width', geoX.bandwidth())
+            .attr('height', d => geoHeight - geoY(d.count))
+            .attr('fill', d => geoColor(d.count))
+            .attr('rx', 2)
+            .attr('opacity', 0.9);
+
+        geoSvg.selectAll('.geo-label').data(geoDistData).join('text')
+            .attr('x', d => geoX(d.province) + geoX.bandwidth() / 2)
+            .attr('y', d => geoY(d.count) - 5)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '10px')
+            .attr('fill', '#8899bb')
+            .text(d => d.count);
+    })();
+    </script>
+</body>
+</html>

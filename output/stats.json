@@ -1,0 +1,12 @@
+{
+  "total_nodes": 993,
+  "total_edges": 4115,
+  "avg_in_degree": 4.14,
+  "avg_out_degree": 4.14,
+  "max_in_degree": 136,
+  "max_out_degree": 77,
+  "density": 0.004177,
+  "num_communities": 25,
+  "largest_community_size": 132,
+  "connected_components": 13
+}

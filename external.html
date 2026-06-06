@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开往网络图谱 - 社区外链分析</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0e1a; color: #e0e6f0; font-family: -apple-system, 'PingFang SC', sans-serif; padding: 20px; }
+        h1 { color: #7ecfff; text-align: center; margin-bottom: 8px; font-size: 28px; }
+        .subtitle { text-align: center; color: #8899bb; margin-bottom: 30px; font-size: 14px; }
+        .nav { text-align: center; margin-bottom: 30px; }
+        .nav a { color: #7ecfff; text-decoration: none; margin: 0 12px; padding: 6px 14px; border: 1px solid #3a4a6c; border-radius: 4px; font-size: 13px; }
+        .nav a:hover { background: #1a2a4a; }
+        .stats-row { display: flex; gap: 16px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+        .stat-pill { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 20px; padding: 8px 20px; font-size: 13px; }
+        .stat-pill .val { color: #7ecfff; font-weight: bold; }
+        .section { margin-bottom: 40px; }
+        .section h2 { color: #7ecfff; margin-bottom: 16px; font-size: 20px; border-left: 3px solid #7ecfff; padding-left: 12px; }
+        .chart-container { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 8px; padding: 20px; }
+        .category-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 30px; }
+        .cat-card { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 8px; padding: 14px; text-align: center; }
+        .cat-card .cat-val { font-size: 22px; font-weight: bold; }
+        .cat-card .cat-name { font-size: 12px; color: #8899bb; margin-top: 4px; }
+        .ext-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 16px; }
+        .ext-card { background: rgba(20,25,40,0.9); border: 1px solid #3a4a6c; border-radius: 8px; padding: 16px; }
+        .ext-card h3 { font-size: 14px; color: #aabbdd; margin-bottom: 12px; }
+        .ext-item { display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #1a2a3c; }
+        .ext-item:last-child { border-bottom: none; }
+        .ext-rank { width: 28px; font-size: 12px; color: #5a6a8c; font-weight: bold; }
+        .ext-domain { flex: 1; font-size: 13px; color: #e0e6f0; }
+        .ext-domain a { color: #7ecfff; text-decoration: none; }
+        .ext-domain a:hover { text-decoration: underline; }
+        .ext-count { width: 60px; text-align: right; font-size: 12px; color: #8899bb; }
+        .ext-bar { width: 100px; height: 14px; background: #1a2a3c; border-radius: 3px; overflow: hidden; margin-left: 8px; }
+        .ext-bar .fill { height: 100%; border-radius: 3px; }
+        .bubble-chart { width: 100%; min-height: 500px; }
+        svg text { fill: #c0ccee; }
+        .axis path, .axis line { stroke: #3a4a6c; }
+    </style>
+</head>
+<body>
+    <h1>社区外链图谱</h1>
+    <p class="subtitle">开往成员站点共同链接的外部世界 — 发现社区的"外部共识"</p>
+    <div class="nav">
+        <a href="index.html">力导向图</a>
+        <a href="dashboard.html">数据分析</a>
+        <a href="external.html">外链图谱</a>
+        <a href="orgs.html">组织生态</a>
+    </div>
+    <p style="text-align:center;color:#8a9ab5;font-size:12px;margin-top:8px;">数据采集日期：2026-06-06 | 数据来源：开往 API + 成员站点实时爬取分析</p>
+
+    <div class="stats-row" id="stats-row"></div>
+    <div class="section">
+        <h2>外链分类概览</h2>
+        <div class="category-grid" id="category-grid"></div>
+    </div>
+
+    <div class="section">
+        <h2>Top 50 外部站点气泡图</h2>
+        <div class="chart-container">
+            <div id="bubble-chart" class="bubble-chart"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>分类排行榜</h2>
+        <div class="ext-list" id="ext-list"></div>
+    </div>
+
+    <script>
+    (async function() {
+        const data = await fetch('./output/external_links.json').then(r => r.json());
+
+        // Stats
+        const statsRow = document.getElementById('stats-row');
+        statsRow.innerHTML = [
+            { label: '外链总数', val: data.total_external_links },
+            { label: '不同外部域名', val: data.unique_external_domains },
+            { label: 'Top 1 被引用', val: data.top_100_domains[0].count + ' 站' },
+        ].map(s => '<div class="stat-pill"><span class="val">' + s.val + '</span> ' + s.label + '</div>').join('');
+
+        // Category grid
+        const catColors = {
+            '代码托管': '#81c784', '社交平台': '#4fc3f7', '音乐/影视': '#ff8a65',
+            '独立博客圈': '#ba68c8', '博客平台': '#ffb74d', '部署/云服务': '#4dd0e1',
+            '统计/监控': '#aed581', '评论系统': '#f06292', '其他': '#78909c'
+        };
+        const catGrid = document.getElementById('category-grid');
+        catGrid.innerHTML = data.category_summary.map(c => {
+            const color = catColors[c.category] || '#78909c';
+            return '<div class="cat-card"><div class="cat-val" style="color:' + color + '">' + c.total_links + '</div><div class="cat-name">' + c.category + '</div></div>';
+        }).join('');
+
+        // Bubble chart (Top 50)
+        const top50 = data.top_100_domains.slice(0, 50);
+        const bubbleDiv = document.getElementById('bubble-chart');
+        const bWidth = bubbleDiv.clientWidth;
+        const bHeight = 500;
+
+        const pack = d3.pack()
+            .size([bWidth, bHeight])
+            .padding(3);
+
+        const root = d3.hierarchy({ children: top50 })
+            .sum(d => d.count);
+
+        const nodes = pack(root).leaves();
+
+        const bSvg = d3.select('#bubble-chart').append('svg')
+            .attr('width', bWidth).attr('height', bHeight);
+
+        const catColorScale = function(cat) {
+            return catColors[cat] || '#78909c';
+        };
+
+        const node = bSvg.selectAll('g')
+            .data(nodes).join('g')
+            .attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
+
+        node.append('circle')
+            .attr('r', d => d.r)
+            .attr('fill', d => catColorScale(d.data.category))
+            .attr('opacity', 0.75)
+            .attr('stroke', d => catColorScale(d.data.category))
+            .attr('stroke-width', 1.5);
+
+        node.filter(d => d.r > 20).append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dy', '-0.2em')
+            .attr('font-size', d => Math.min(d.r / 3, 12) + 'px')
+            .attr('fill', '#fff')
+            .text(d => d.data.domain.replace(/\.com$|\.cn$|\.org$|\.net$|\.io$/, ''));
+
+        node.filter(d => d.r > 20).append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dy', '1.1em')
+            .attr('font-size', d => Math.min(d.r / 4, 10) + 'px')
+            .attr('fill', '#aaa')
+            .text(d => d.data.count + ' 站');
+
+        node.append('title')
+            .text(d => d.data.domain + '\n被 ' + d.data.count + ' 个站点引用\n分类: ' + d.data.category);
+
+        // Category ranked lists
+        const extList = document.getElementById('ext-list');
+        const categories = {};
+        data.top_100_domains.forEach(d => {
+            if (!categories[d.category]) categories[d.category] = [];
+            categories[d.category].push(d);
+        });
+
+        const maxCount = data.top_100_domains[0].count;
+
+        Object.entries(categories).sort((a, b) => b[1].length - a[1].length).forEach(function(entry) {
+            const cat = entry[0];
+            const items = entry[1];
+            const color = catColors[cat] || '#78909c';
+            let html = '<div class="ext-card"><h3 style="color:' + color + '">' + cat + ' (' + items.length + ')</h3>';
+            items.slice(0, 15).forEach(function(item, i) {
+                const pct = (item.count / maxCount * 100).toFixed(1);
+                html += '<div class="ext-item">';
+                html += '<span class="ext-rank">' + (i + 1) + '</span>';
+                html += '<span class="ext-domain"><a href="https://' + item.domain + '" target="_blank">' + item.domain + '</a></span>';
+                html += '<span class="ext-count">' + item.count + ' 站</span>';
+                html += '<div class="ext-bar"><div class="fill" style="width:' + pct + '%;background:' + color + '"></div></div>';
+                html += '</div>';
+            });
+            html += '</div>';
+            extList.innerHTML += html;
+        });
+    })();
+    </script>
+</body>
+</html>

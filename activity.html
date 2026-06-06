@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>开往网络图谱 - 活跃度分析</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0f1724; color: #e0e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 30px; }
+        h1 { text-align: center; font-size: 28px; margin-bottom: 8px; background: linear-gradient(90deg, #4ecdc4, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { text-align: center; color: #8a9ab5; font-size: 14px; margin-bottom: 10px; }
+        .nav { text-align: center; margin-bottom: 30px; }
+        .nav a { color: #7ecfff; text-decoration: none; margin: 0 12px; padding: 6px 14px; border: 1px solid #3a4a6c; border-radius: 4px; font-size: 13px; }
+        .nav a:hover { background: #1a2a4a; }
+        .stats-row { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 30px; }
+        .stat-card { background: #1a2440; border: 1px solid #2a3a5c; border-radius: 10px; padding: 20px 28px; text-align: center; min-width: 140px; }
+        .stat-card .num { font-size: 32px; font-weight: bold; }
+        .stat-card .label { font-size: 12px; color: #8a9ab5; margin-top: 4px; }
+        .section { background: #1a2440; border: 1px solid #2a3a5c; border-radius: 10px; padding: 24px; margin-bottom: 24px; }
+        .section h2 { font-size: 18px; margin-bottom: 16px; color: #7ecfff; }
+        .section p.note { font-size: 12px; color: #8a9ab5; margin-bottom: 12px; }
+        .chart-container { width: 100%; overflow-x: auto; }
+        #activity-pie { display: flex; justify-content: center; align-items: center; gap: 40px; flex-wrap: wrap; }
+        #timeline-chart { height: 300px; }
+        #heatmap-chart { min-height: 400px; }
+        #ranking-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { #ranking-grid { grid-template-columns: 1fr; } }
+        .ranking-list { max-height: 400px; overflow-y: auto; }
+        .ranking-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ranking-list th { text-align: left; padding: 8px; border-bottom: 1px solid #2a3a5c; color: #7ecfff; position: sticky; top: 0; background: #1a2440; }
+        .ranking-list td { padding: 6px 8px; border-bottom: 1px solid #1f2f4c; }
+        .ranking-list td a { color: #7ecfff; text-decoration: none; }
+        .ranking-list td a:hover { text-decoration: underline; }
+        .level-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+        .legend { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin: 16px 0; font-size: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+    </style>
+</head>
+<body>
+    <h1>开往社区活跃度图谱</h1>
+    <p class="subtitle">基于 RSS/Atom Feed 分析的博客更新频率 — 冷色沉寂，暖色活跃</p>
+    <div class="nav">
+        <a href="index.html">力导向图</a>
+        <a href="dashboard.html">数据分析</a>
+        <a href="external.html">外链图谱</a>
+        <a href="orgs.html">组织生态</a>
+        <a href="activity.html">活跃度</a>
+    </div>
+    <p style="text-align:center;color:#8a9ab5;font-size:12px;margin-top:8px;">数据采集日期：2026-06-06 | 数据来源：开往 API + 成员站点实时爬取分析</p>
+
+    <div class="stats-row" id="stats-row"></div>
+
+    <div class="section">
+        <h2>活跃度分布</h2>
+        <p class="note">饼图显示各活跃等级占比，颜色从暖到冷代表从活跃到沉寂</p>
+        <div id="activity-pie"></div>
+    </div>
+
+    <div class="section">
+        <h2>最后更新时间线</h2>
+        <p class="note">每个点代表一个站点，横轴为最后一篇文章的发布时间</p>
+        <div class="chart-container" id="timeline-chart"></div>
+    </div>
+
+    <div class="section">
+        <h2>月度发文热力图</h2>
+        <p class="note">统计所有 RSS 文章的发布月份分布（近两年）</p>
+        <div class="chart-container" id="heatmap-chart"></div>
+    </div>
+
+    <div class="section">
+        <h2>排行榜</h2>
+        <div id="ranking-grid">
+            <div>
+                <h3 style="color:#ff6b6b;margin-bottom:10px;">🔥 近3个月最勤奋 Top 30</h3>
+                <div class="ranking-list" id="rank-active"></div>
+            </div>
+            <div>
+                <h3 style="color:#4ecdc4;margin-bottom:10px;">💤 僵尸站 Top 30（最久未更新）</h3>
+                <div class="ranking-list" id="rank-zombie"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>响应时间统计</h2>
+        <p class="note">从东京（阿里云）服务器测量，并发100，超时15秒。仅供参考，不代表用户端真实体验。</p>
+        <div class="stats-row" id="rt-stats"></div>
+        <div class="chart-container" id="rt-dist" style="height:300px;margin-top:20px;"></div>
+        <div id="rt-ranking-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
+            <div>
+                <h3 style="color:#4ecdc4;margin-bottom:10px;">⚡ 最快 Top 30</h3>
+                <div class="ranking-list" id="rank-fastest"></div>
+            </div>
+            <div>
+                <h3 style="color:#ff6b6b;margin-bottom:10px;">🐢 最慢 Top 30</h3>
+                <div class="ranking-list" id="rank-slowest"></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+const COLORS = {
+    very_active: '#ff4757',
+    active: '#ff6b6b',
+    moderate: '#ffa502',
+    dormant: '#70a1ff',
+    zombie: '#57606f',
+    no_feed: '#2f3542'
+};
+const LABELS = {
+    very_active: '非常活跃（3月≥3篇）',
+    active: '活跃（3月≥1篇）',
+    moderate: '一般（6月内更新）',
+    dormant: '沉寂（1年内）',
+    zombie: '僵尸（>1年）',
+    no_feed: '无RSS'
+};
+
+d3.json('./output/activity.json').then(data => {
+    renderStats(data);
+    renderPie(data);
+    renderTimeline(data);
+    renderHeatmap(data);
+    renderRankings(data);
+});
+
+function renderStats(data) {
+    const s = data.stats;
+    const total = data.total_sites;
+    const cards = [
+        { num: total, label: '总站点数', color: '#7ecfff' },
+        { num: s.has_feed, label: '有RSS', color: '#4ecdc4' },
+        { num: s.active_3m, label: '3个月活跃', color: '#ff6b6b' },
+        { num: s.active_6m, label: '3-6月更新', color: '#ffa502' },
+        { num: s.dormant_1y, label: '半年-1年沉寂', color: '#70a1ff' },
+        { num: s.zombie, label: '僵尸站(>1年)', color: '#57606f' },
+        { num: total - s.has_feed, label: '无RSS', color: '#2f3542' }
+    ];
+    const row = document.getElementById('stats-row');
+    row.innerHTML = cards.map(c =>
+        `<div class="stat-card"><div class="num" style="color:${c.color}">${c.num}</div><div class="label">${c.label}</div></div>`
+    ).join('');
+}
+
+function renderPie(data) {
+    const sites = data.sites;
+    const counts = {};
+    sites.forEach(s => { counts[s.level] = (counts[s.level] || 0) + 1; });
+    const pieData = Object.entries(counts).map(([k, v]) => ({ level: k, count: v }));
+    pieData.sort((a, b) => b.count - a.count);
+
+    const width = 320, height = 320, radius = 140;
+    const container = document.getElementById('activity-pie');
+
+    const svg = d3.select('#activity-pie').append('svg').attr('width', width).attr('height', height);
+    const g = svg.append('g').attr('transform', `translate(${width/2},${height/2})`);
+
+    const pie = d3.pie().value(d => d.count).sort(null);
+    const arc = d3.arc().innerRadius(60).outerRadius(radius);
+
+    g.selectAll('path').data(pie(pieData)).enter().append('path')
+        .attr('d', arc)
+        .attr('fill', d => COLORS[d.data.level])
+        .attr('stroke', '#0f1724').attr('stroke-width', 2);
+
+    // Center text
+    g.append('text').attr('text-anchor', 'middle').attr('dy', '-0.2em')
+        .attr('fill', '#e0e8f0').attr('font-size', '24px').attr('font-weight', 'bold')
+        .text(data.stats.has_feed);
+    g.append('text').attr('text-anchor', 'middle').attr('dy', '1.2em')
+        .attr('fill', '#8a9ab5').attr('font-size', '12px').text('有RSS站点');
+
+    // Legend
+    const legend = d3.select('#activity-pie').append('div').style('font-size', '13px');
+    pieData.forEach(d => {
+        const pct = (d.count / data.total_sites * 100).toFixed(1);
+        legend.append('div').style('margin-bottom', '8px').html(
+            `<span class="level-dot" style="background:${COLORS[d.level]}"></span>${LABELS[d.level]}：${d.count}（${pct}%）`
+        );
+    });
+}
+
+function renderTimeline(data) {
+    const now = new Date();
+    const sites = data.sites.filter(s => s.last_update && new Date(s.last_update) <= now);
+    const container = document.getElementById('timeline-chart');
+    const width = container.clientWidth || 900;
+    const height = 300;
+    const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+
+    const svg = d3.select('#timeline-chart').append('svg').attr('width', width).attr('height', height);
+
+    const parseDate = d3.isoParse;
+    const dates = sites.map(s => parseDate(s.last_update)).filter(d => d && d <= now);
+
+    const x = d3.scaleTime()
+        .domain(d3.extent(dates))
+        .range([margin.left, width - margin.right]);
+
+    // Group by month for histogram
+    const bins = d3.bin()
+        .value(d => parseDate(d.last_update))
+        .domain(x.domain())
+        .thresholds(d3.timeMonths(...x.domain()))(sites.filter(s => s.last_update));
+
+    const y = d3.scaleLinear()
+        .domain([0, d3.max(bins, d => d.length)])
+        .range([height - margin.bottom, margin.top]);
+
+    // Color by date - more recent = warmer
+    const colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
+        .domain([new Date(), new Date('2020-01-01')]);
+
+    svg.selectAll('rect').data(bins).enter().append('rect')
+        .attr('x', d => x(d.x0) + 1)
+        .attr('width', d => Math.max(0, x(d.x1) - x(d.x0) - 2))
+        .attr('y', d => y(d.length))
+        .attr('height', d => y(0) - y(d.length))
+        .attr('fill', d => colorScale(d.x0))
+        .attr('rx', 2);
+
+    // Axes
+    svg.append('g').attr('transform', `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x).ticks(d3.timeMonth.every(3)).tickFormat(d3.timeFormat('%Y-%m')))
+        .attr('color', '#8a9ab5')
+        .selectAll('text').attr('transform', 'rotate(-30)').style('text-anchor', 'end');
+
+    svg.append('g').attr('transform', `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).ticks(5))
+        .attr('color', '#8a9ab5');
+
+    svg.append('text').attr('x', width/2).attr('y', height - 2)
+        .attr('text-anchor', 'middle').attr('fill', '#8a9ab5').attr('font-size', '11px')
+        .text('最后更新月份（红=近期，蓝=久远）');
+}
+
+function renderHeatmap(data) {
+    const sites = data.sites.filter(s => s.last_update);
+    // Collect all article dates and group by year-month
+    const monthlyCounts = {};
+    const now = new Date();
+    const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+
+    sites.forEach(s => {
+        if (s.last_update) {
+            const d = new Date(s.last_update);
+            if (d >= twoYearsAgo) {
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                monthlyCounts[key] = (monthlyCounts[key] || 0) + 1;
+            }
+        }
+    });
+
+    // Build grid data: rows = years, cols = months
+    const years = [];
+    for (let y = twoYearsAgo.getFullYear(); y <= now.getFullYear(); y++) years.push(y);
+    const months = Array.from({length: 12}, (_, i) => i + 1);
+
+    const container = document.getElementById('heatmap-chart');
+    const cellSize = 50, gap = 4;
+    const width = (cellSize + gap) * 12 + 80;
+    const height = (cellSize + gap) * years.length + 60;
+
+    const svg = d3.select('#heatmap-chart').append('svg').attr('width', width).attr('height', height);
+    const g = svg.append('g').attr('transform', 'translate(60, 30)');
+
+    const maxCount = d3.max(Object.values(monthlyCounts)) || 1;
+    const color = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, maxCount]);
+
+    // Month labels
+    const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    g.selectAll('.month-label').data(months).enter().append('text')
+        .attr('x', (d, i) => i * (cellSize + gap) + cellSize/2)
+        .attr('y', -10).attr('text-anchor', 'middle').attr('fill', '#8a9ab5').attr('font-size', '11px')
+        .text(d => monthNames[d-1]);
+
+    // Year labels + cells
+    years.forEach((year, yi) => {
+        g.append('text').attr('x', -10).attr('y', yi * (cellSize + gap) + cellSize/2 + 4)
+            .attr('text-anchor', 'end').attr('fill', '#8a9ab5').attr('font-size', '12px').text(year);
+
+        months.forEach((month, mi) => {
+            const key = `${year}-${String(month).padStart(2, '0')}`;
+            const count = monthlyCounts[key] || 0;
+            const cell = g.append('g');
+            cell.append('rect')
+                .attr('x', mi * (cellSize + gap)).attr('y', yi * (cellSize + gap))
+                .attr('width', cellSize).attr('height', cellSize)
+                .attr('rx', 4).attr('fill', count > 0 ? color(count) : '#1f2f4c')
+                .attr('stroke', '#2a3a5c');
+            if (count > 0) {
+                cell.append('text')
+                    .attr('x', mi * (cellSize + gap) + cellSize/2)
+                    .attr('y', yi * (cellSize + gap) + cellSize/2 + 4)
+                    .attr('text-anchor', 'middle').attr('fill', count > maxCount*0.6 ? '#fff' : '#e0e8f0')
+                    .attr('font-size', '11px').text(count);
+            }
+        });
+    });
+}
+
+function renderRankings(data) {
+    // Most active (by posts_3m)
+    const active = data.sites.filter(s => s.posts_3m > 0).sort((a, b) => b.posts_3m - a.posts_3m).slice(0, 30);
+    const activeHtml = `<table><tr><th>#</th><th>站点</th><th>3月文章</th><th>最后更新</th></tr>` +
+        active.map((s, i) => `<tr><td>${i+1}</td><td><a href="${s.url}" target="_blank">${s.domain}</a></td><td style="color:#ff6b6b;font-weight:bold">${s.posts_3m}</td><td style="color:#8a9ab5;font-size:11px">${s.last_update ? s.last_update.slice(0,10) : '-'}</td></tr>`).join('') + '</table>';
+    document.getElementById('rank-active').innerHTML = activeHtml;
+
+    // Zombies (oldest last_update)
+    const zombies = data.sites.filter(s => s.feed_url && s.last_update).sort((a, b) => a.last_update.localeCompare(b.last_update)).slice(0, 30);
+    const zombieHtml = `<table><tr><th>#</th><th>站点</th><th>最后更新</th><th>距今</th></tr>` +
+        zombies.map((s, i) => {
+            const days = Math.floor((Date.now() - new Date(s.last_update).getTime()) / 86400000);
+            const label = days > 365 ? `${Math.floor(days/365)}年${Math.floor((days%365)/30)}月` : `${Math.floor(days/30)}个月`;
+            return `<tr><td>${i+1}</td><td><a href="${s.url}" target="_blank">${s.domain}</a></td><td style="color:#57606f;font-size:11px">${s.last_update.slice(0,10)}</td><td style="color:#70a1ff">${label}</td></tr>`;
+        }).join('') + '</table>';
+    document.getElementById('rank-zombie').innerHTML = zombieHtml;
+}
+
+// === Response Time Section ===
+d3.json('./output/response_times.json').then(rtData => {
+    renderRTStats(rtData);
+    renderRTDist(rtData);
+    renderRTRankings(rtData);
+});
+
+function renderRTStats(data) {
+    const s = data.stats;
+    const cards = [
+        { num: s.success, label: '成功响应', color: '#4ecdc4' },
+        { num: s.avg_ms + 'ms', label: '平均延迟', color: '#ffa502' },
+        { num: s.median_ms + 'ms', label: '中位数', color: '#7ecfff' },
+        { num: s.p90_ms + 'ms', label: 'P90', color: '#ff6b6b' },
+        { num: s.p95_ms + 'ms', label: 'P95', color: '#ff4757' },
+        { num: s.timeout, label: '超时', color: '#57606f' },
+        { num: s.error, label: '连接失败', color: '#2f3542' },
+    ];
+    document.getElementById('rt-stats').innerHTML = cards.map(c =>
+        `<div class="stat-card"><div class="num" style="color:${c.color}">${c.num}</div><div class="label">${c.label}</div></div>`
+    ).join('');
+}
+
+function renderRTDist(data) {
+    const dist = data.distribution;
+    const container = document.getElementById('rt-dist');
+    const width = container.clientWidth || 800;
+    const height = 300;
+    const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+
+    const svg = d3.select('#rt-dist').append('svg').attr('width', width).attr('height', height);
+
+    const x = d3.scaleBand()
+        .domain(dist.map(d => d.label))
+        .range([margin.left, width - margin.right])
+        .padding(0.3);
+
+    const y = d3.scaleLinear()
+        .domain([0, d3.max(dist, d => d.count)])
+        .range([height - margin.bottom, margin.top]);
+
+    const barColors = ['#4ecdc4', '#7ecfff', '#ffa502', '#ff6b6b', '#ff4757', '#c0392b', '#57606f'];
+
+    svg.selectAll('rect').data(dist).enter().append('rect')
+        .attr('x', d => x(d.label))
+        .attr('width', x.bandwidth())
+        .attr('y', d => y(d.count))
+        .attr('height', d => y(0) - y(d.count))
+        .attr('fill', (d, i) => barColors[i])
+        .attr('rx', 4);
+
+    // Count labels on bars
+    svg.selectAll('.bar-label').data(dist).enter().append('text')
+        .attr('x', d => x(d.label) + x.bandwidth() / 2)
+        .attr('y', d => y(d.count) - 5)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#e0e8f0').attr('font-size', '12px')
+        .text(d => d.count > 0 ? d.count : '');
+
+    svg.append('g').attr('transform', `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x))
+        .attr('color', '#8a9ab5')
+        .selectAll('text').attr('font-size', '11px');
+
+    svg.append('g').attr('transform', `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).ticks(5))
+        .attr('color', '#8a9ab5');
+
+    svg.append('text').attr('x', width/2).attr('y', height - 5)
+        .attr('text-anchor', 'middle').attr('fill', '#8a9ab5').attr('font-size', '11px')
+        .text('响应时间区间');
+}
+
+function renderRTRankings(data) {
+    const fastest = data.fastest;
+    const slowest = data.slowest;
+
+    const fastHtml = `<table><tr><th>#</th><th>站点</th><th>响应时间</th></tr>` +
+        fastest.map((s, i) => `<tr><td>${i+1}</td><td><a href="${s.url}" target="_blank">${s.domain}</a></td><td style="color:#4ecdc4;font-weight:bold">${s.time_ms}ms</td></tr>`).join('') + '</table>';
+    document.getElementById('rank-fastest').innerHTML = fastHtml;
+
+    const slowHtml = `<table><tr><th>#</th><th>站点</th><th>响应时间</th></tr>` +
+        slowest.map((s, i) => `<tr><td>${i+1}</td><td><a href="${s.url}" target="_blank">${s.domain}</a></td><td style="color:#ff6b6b;font-weight:bold">${s.time_ms}ms</td></tr>`).join('') + '</table>';
+    document.getElementById('rank-slowest').innerHTML = slowHtml;
+}
+</script>
+</body>
+</html>

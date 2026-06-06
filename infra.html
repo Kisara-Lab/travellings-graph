@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>开往网络图谱 - 基础设施</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0f1724; color: #e0e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 30px; }
+        h1 { text-align: center; font-size: 28px; margin-bottom: 8px; background: linear-gradient(90deg, #4ecdc4, #7ecfff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { text-align: center; color: #8a9ab5; font-size: 14px; margin-bottom: 10px; }
+        .nav { text-align: center; margin-bottom: 30px; }
+        .nav a { color: #7ecfff; text-decoration: none; margin: 0 12px; padding: 6px 14px; border: 1px solid #3a4a6c; border-radius: 4px; font-size: 13px; }
+        .nav a:hover { background: #1a2a4a; }
+        .stats-row { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 30px; }
+        .stat-card { background: #1a2440; border: 1px solid #2a3a5c; border-radius: 10px; padding: 20px 28px; text-align: center; min-width: 140px; }
+        .stat-card .num { font-size: 32px; font-weight: bold; }
+        .stat-card .label { font-size: 12px; color: #8a9ab5; margin-top: 4px; }
+        .section { background: #1a2440; border: 1px solid #2a3a5c; border-radius: 10px; padding: 24px; margin-bottom: 24px; }
+        .section h2 { font-size: 18px; margin-bottom: 16px; color: #7ecfff; }
+        .section p.note { font-size: 12px; color: #8a9ab5; margin-bottom: 12px; }
+        .chart-container { width: 100%; overflow-x: auto; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+        #https-pie { display: flex; justify-content: center; align-items: center; gap: 40px; flex-wrap: wrap; }
+        .ranking-list { max-height: 400px; overflow-y: auto; }
+        .ranking-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ranking-list th { text-align: left; padding: 8px; border-bottom: 1px solid #2a3a5c; color: #7ecfff; position: sticky; top: 0; background: #1a2440; }
+        .ranking-list td { padding: 6px 8px; border-bottom: 1px solid #1f2f4c; }
+        .ranking-list td a { color: #7ecfff; text-decoration: none; }
+        .http-badge { color: #ff4757; font-weight: bold; }
+        .https-badge { color: #4ecdc4; }
+    </style>
+</head>
+<body>
+    <h1>基础设施分析</h1>
+    <p class="subtitle">HTTPS 覆盖率 / CDN 与托管商分布 / Web Server 统计</p>
+    <div class="nav">
+        <a href="index.html">力导向图</a>
+        <a href="dashboard.html">数据分析</a>
+        <a href="external.html">外链图谱</a>
+        <a href="orgs.html">组织生态</a>
+        <a href="activity.html">活跃度</a>
+        <a href="infra.html">基础设施</a>
+    </div>
+    <p style="text-align:center;color:#8a9ab5;font-size:12px;margin-top:8px;">数据采集日期：2026-06-06 | 数据来源：开往 API + 成员站点实时爬取分析</p>
+
+    <div class="stats-row" id="stats-row"></div>
+
+    <div class="two-col">
+        <div class="section">
+            <h2>HTTPS 覆盖率</h2>
+            <p class="note">几乎所有站点已启用 HTTPS，独立博客安全意识很强</p>
+            <div id="https-pie"></div>
+        </div>
+        <div class="section">
+            <h2>CDN / 托管商分布</h2>
+            <p class="note">基于 HTTP Response Headers 识别（server, x-powered-by, cf-ray 等）</p>
+            <div class="chart-container" id="cdn-chart" style="height:360px;"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Web Server 分布</h2>
+        <p class="note">根据 Server 响应头统计，反映站点使用的 Web 服务器软件</p>
+        <div class="chart-container" id="server-chart" style="height:320px;"></div>
+    </div>
+
+    <div class="section" id="http-sites-section" style="display:none;">
+        <h2>仍在使用 HTTP 的站点</h2>
+        <div class="ranking-list" id="http-sites"></div>
+    </div>
+
+<script>
+d3.json('./output/infra.json').then(data => {
+    renderStats(data);
+    renderHTTPSPie(data);
+    renderCDNChart(data);
+    renderServerChart(data);
+    renderHTTPSites(data);
+});
+
+function renderStats(data) {
+    const s = data.https_stats;
+    const total = data.total_sites;
+    const cards = [
+        { num: total, label: '总站点', color: '#7ecfff' },
+        { num: s.https, label: 'HTTPS', color: '#4ecdc4' },
+        { num: (s.https/total*100).toFixed(1) + '%', label: 'HTTPS覆盖率', color: '#4ecdc4' },
+        { num: s.http_only, label: '仅HTTP', color: '#ff4757' },
+        { num: s.failed, label: '无法访问', color: '#57606f' },
+    ];
+    document.getElementById('stats-row').innerHTML = cards.map(c =>
+        `<div class="stat-card"><div class="num" style="color:${c.color}">${c.num}</div><div class="label">${c.label}</div></div>`
+    ).join('');
+}
+
+function renderHTTPSPie(data) {
+    const s = data.https_stats;
+    const pieData = [
+        { label: 'HTTPS', count: s.https, color: '#4ecdc4' },
+        { label: '仅HTTP', count: s.http_only, color: '#ff4757' },
+        { label: '无法访问', count: s.failed, color: '#57606f' },
+    ].filter(d => d.count > 0);
+
+    const width = 240, height = 240, radius = 100;
+    const svg = d3.select('#https-pie').append('svg').attr('width', width).attr('height', height);
+    const g = svg.append('g').attr('transform', `translate(${width/2},${height/2})`);
+
+    const pie = d3.pie().value(d => d.count).sort(null);
+    const arc = d3.arc().innerRadius(50).outerRadius(radius);
+
+    g.selectAll('path').data(pie(pieData)).enter().append('path')
+        .attr('d', arc)
+        .attr('fill', d => d.data.color)
+        .attr('stroke', '#0f1724').attr('stroke-width', 2);
+
+    g.append('text').attr('text-anchor', 'middle').attr('dy', '-0.2em')
+        .attr('fill', '#4ecdc4').attr('font-size', '22px').attr('font-weight', 'bold')
+        .text((s.https/data.total_sites*100).toFixed(1) + '%');
+    g.append('text').attr('text-anchor', 'middle').attr('dy', '1.4em')
+        .attr('fill', '#8a9ab5').attr('font-size', '11px').text('HTTPS');
+
+    const legend = d3.select('#https-pie').append('div').style('font-size', '13px');
+    pieData.forEach(d => {
+        legend.append('div').style('margin-bottom', '6px').html(
+            `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${d.color};margin-right:6px;"></span>${d.label}：${d.count}`
+        );
+    });
+}
+
+function renderCDNChart(data) {
+    const dist = data.provider_distribution.slice(0, 12);
+    const container = document.getElementById('cdn-chart');
+    const width = container.clientWidth || 500;
+    const height = 360;
+    const margin = { top: 10, right: 40, bottom: 10, left: 120 };
+
+    const svg = d3.select('#cdn-chart').append('svg').attr('width', width).attr('height', height);
+
+    const y = d3.scaleBand()
+        .domain(dist.map(d => d[0]))
+        .range([margin.top, height - margin.bottom])
+        .padding(0.25);
+
+    const x = d3.scaleLinear()
+        .domain([0, d3.max(dist, d => d[1])])
+        .range([margin.left, width - margin.right]);
+
+    const colors = d3.scaleOrdinal(d3.schemeTableau10);
+
+    svg.selectAll('rect').data(dist).enter().append('rect')
+        .attr('x', margin.left)
+        .attr('y', d => y(d[0]))
+        .attr('width', d => x(d[1]) - margin.left)
+        .attr('height', y.bandwidth())
+        .attr('fill', (d, i) => colors(i))
+        .attr('rx', 3);
+
+    // Labels
+    svg.selectAll('.bar-label').data(dist).enter().append('text')
+        .attr('x', d => x(d[1]) + 5)
+        .attr('y', d => y(d[0]) + y.bandwidth()/2 + 4)
+        .attr('fill', '#e0e8f0').attr('font-size', '11px')
+        .text(d => `${d[1]} (${(d[1]/data.total_sites*100).toFixed(1)}%)`);
+
+    svg.selectAll('.name-label').data(dist).enter().append('text')
+        .attr('x', margin.left - 5)
+        .attr('y', d => y(d[0]) + y.bandwidth()/2 + 4)
+        .attr('text-anchor', 'end').attr('fill', '#e0e8f0').attr('font-size', '12px')
+        .text(d => d[0]);
+}
+
+function renderServerChart(data) {
+    const dist = data.server_distribution.filter(d => !d[0].startsWith('Other')).slice(0, 10);
+    const others = data.server_distribution.filter(d => d[0].startsWith('Other'));
+    const otherSum = others.reduce((s, d) => s + d[1], 0);
+    if (otherSum > 0) dist.push(['其他', otherSum]);
+
+    const container = document.getElementById('server-chart');
+    const width = container.clientWidth || 800;
+    const height = 320;
+    const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+
+    const svg = d3.select('#server-chart').append('svg').attr('width', width).attr('height', height);
+
+    const x = d3.scaleBand()
+        .domain(dist.map(d => d[0]))
+        .range([margin.left, width - margin.right])
+        .padding(0.3);
+
+    const y = d3.scaleLinear()
+        .domain([0, d3.max(dist, d => d[1])])
+        .range([height - margin.bottom, margin.top]);
+
+    const colors = d3.scaleOrdinal(d3.schemeSet2);
+
+    svg.selectAll('rect').data(dist).enter().append('rect')
+        .attr('x', d => x(d[0]))
+        .attr('width', x.bandwidth())
+        .attr('y', d => y(d[1]))
+        .attr('height', d => y(0) - y(d[1]))
+        .attr('fill', (d, i) => colors(i))
+        .attr('rx', 4);
+
+    svg.selectAll('.bar-label').data(dist).enter().append('text')
+        .attr('x', d => x(d[0]) + x.bandwidth()/2)
+        .attr('y', d => y(d[1]) - 5)
+        .attr('text-anchor', 'middle').attr('fill', '#e0e8f0').attr('font-size', '11px')
+        .text(d => d[1]);
+
+    svg.append('g').attr('transform', `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x)).attr('color', '#8a9ab5')
+        .selectAll('text').attr('font-size', '11px').attr('transform', 'rotate(-20)').style('text-anchor', 'end');
+
+    svg.append('g').attr('transform', `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).ticks(5)).attr('color', '#8a9ab5');
+}
+
+function renderHTTPSites(data) {
+    const sites = data.http_only_sites || [];
+    if (sites.length === 0) return;
+    document.getElementById('http-sites-section').style.display = 'block';
+    const html = `<table><tr><th>#</th><th>站点</th><th>URL</th></tr>` +
+        sites.map((s, i) => `<tr><td>${i+1}</td><td>${s.domain}</td><td><a href="${s.url}" target="_blank" class="http-badge">${s.url}</a></td></tr>`).join('') + '</table>';
+    document.getElementById('http-sites').innerHTML = html;
+}
+</script>
+</body>
+</html>
